@@ -1,0 +1,71 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+
+' --- ESTILOS MINIMALISTAS ---
+skinparam sequence {
+    ArrowColor DimGray
+    ActorBorderColor Black
+    LifeLineBorderColor Black
+    LifeLineBackgroundColor White
+    ParticipantBorderColor Black
+    ParticipantBackgroundColor White
+    DatabaseBorderColor Black
+    DatabaseBackgroundColor White
+}
+
+' --- PARTICIPANTES ---
+actor "Usuario" as V
+participant "API/Facade" as API
+database "Banco de Dados" as BD
+
+' ==========================================
+== Cadastro de Conta ==
+' ==========================================
+autonumber 1.1
+V -> API: cadastrarConta(dadosUsuario)
+activate API
+API -> BD: salvarUsuario()
+activate BD
+BD --> API: usuarioSalvo()
+deactivate BD
+API --> V: contaCriada()
+deactivate API
+
+' ==========================================
+== Autenticação e Recuperação ==
+' ==========================================
+autonumber 2.1
+V -> API: fazerLogin(email, senha)
+activate API
+API -> BD: validarCredenciais()
+activate BD
+BD --> API: credenciaisValidas()
+deactivate BD
+API --> V: loginRealizado(token)
+deactivate API
+
+autonumber 3.1
+V -> API: recuperarSenha(email)
+activate API
+API -> BD: buscarUsuarioPorEmail()
+activate BD
+BD --> API: usuarioEncontrado()
+deactivate BD
+API --> V: emailRecuperacaoEnviado()
+deactivate API
+
+' ==========================================
+== Atualização de Dados ==
+' ==========================================
+autonumber 4.1
+V -> API: atualizarDadosConta(dadosUsuario)
+activate API
+API -> BD: atualizarUsuario()
+activate BD
+BD --> API: usuarioAtualizado()
+deactivate BD
+API --> V: dadosAtualizados()
+deactivate API
+
+@enduml

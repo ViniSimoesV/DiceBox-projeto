@@ -1,0 +1,72 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+
+' --- ESTILOS MINIMALISTAS ---
+skinparam sequence {
+    ArrowColor DimGray
+    ActorBorderColor Black
+    LifeLineBorderColor Black
+    LifeLineBackgroundColor White
+    ParticipantBorderColor Black
+    ParticipantBackgroundColor White
+    DatabaseBorderColor Black
+    DatabaseBackgroundColor White
+}
+
+' --- PARTICIPANTES ---
+actor "Cliente" as C
+participant "API/Facade" as API
+queue "RabbitMQ" as Q
+participant "Worker" as W
+database "Banco de Dados" as BD
+participant "Pagamento" as PG
+actor "Vendedor" as V
+
+' ==========================================
+== Realizar Pedido ==
+' ==========================================
+autonumber 1.1
+C -> API: solicitarCheckout(carrinhoID)
+activate API
+API -> BD: buscarItensCarrinho()
+activate BD
+BD --> API: retornarItens()
+deactivate BD
+API -> BD: criarPedido()
+activate BD
+BD --> API: confirmarCriacaoPedido()
+deactivate BD
+API -> Q: publicarEvento(ReservaEstoque)
+activate Q
+Q --> API: eventoPublicado()
+deactivate Q
+API -> Q: publicarEvento(CobrancaPagamento)
+activate Q
+Q --> API: eventoPublicado()
+deactivate Q
+API --> C: retornarStatusConfirmacao()
+deactivate API
+
+' ==========================================
+== Realizar Pagamento (Include) ==
+' ==========================================
+autonumber 2.1
+Q -> W: consumirEvento(CobrancaPagamento)
+activate W
+W -> PG: processarTransacao()
+activate PG
+PG --> W: pagamentoConfirmado()
+deactivate PG
+W -> BD: atualizarStatusPagamento()
+activate BD
+BD --> W: statusAtualizado()
+deactivate BD
+W -> Q: publicarEvento(NotificacaoSucesso)
+activate Q
+Q --> W: eventoPublicado()
+deactivate Q
+W -> V: notificarNovaVenda(pedidoID)
+deactivate W
+
+@enduml

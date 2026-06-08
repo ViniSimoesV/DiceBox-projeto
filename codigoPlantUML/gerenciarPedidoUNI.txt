@@ -1,0 +1,64 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+
+' --- ESTILOS MINIMALISTAS ---
+skinparam sequence {
+    ArrowColor DimGray
+    ActorBorderColor Black
+    LifeLineBorderColor Black
+    LifeLineBackgroundColor White
+    ParticipantBorderColor Black
+    ParticipantBackgroundColor White
+    DatabaseBorderColor Black
+    DatabaseBackgroundColor White
+}
+
+' --- PARTICIPANTES ---
+actor "Vendedor" as V
+participant "API/Facade" as API
+database "Banco de Dados" as BD
+queue "RabbitMQ" as Q
+participant "Worker" as W
+actor "Cliente" as C
+
+' ==========================================
+== Gerenciar Pedidos ==
+' ==========================================
+autonumber 1.1
+V -> API: consultarPedidosPendentes(status=PAGO)
+activate API
+API -> BD: buscarPedidos()
+activate BD
+BD --> API: retornarListaPedidos()
+deactivate BD
+API --> V: exibirPedidos()
+deactivate API
+
+' ==========================================
+== Realizar Envio (Extend) ==
+' ==========================================
+autonumber 2.1
+V -> API: realizarEnvio(pedidoID, codRastreio)
+activate API
+API -> BD: atualizarStatus(ENVIADO)
+activate BD
+BD --> API: statusAtualizado()
+deactivate BD
+API -> Q: publicarEvento(NotificacaoEnvio)
+activate Q
+Q --> API: eventoPublicado()
+deactivate Q
+API --> V: confirmacaoEnvio()
+deactivate API
+
+' ==========================================
+== Notificar Status (Extend) ==
+' ==========================================
+autonumber 3.1
+Q -> W: consumirEvento(NotificacaoEnvio)
+activate W
+W -> C: notificarStatusPedido(codRastreio)
+deactivate W
+
+@enduml

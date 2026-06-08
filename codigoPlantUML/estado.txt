@@ -1,0 +1,81 @@
+@startuml
+skinparam shadowing false
+
+title
+<b>Diagrama de Transição de Estados</b>
+<b>Sistema DiceBox - Ciclo de Vida do Pedido</b>
+end title
+
+' --- CONFIGURAÇÕES VISUAIS BASEADAS NA REFERÊNCIA ---
+skinparam state {
+    BackgroundColor #ADD8E6
+    BorderColor #000080
+    ArrowColor #000080
+    FontColor Black
+}
+skinparam note {
+    BackgroundColor #FFFFE0
+    BorderColor #BDB76B
+    FontColor Black
+}
+
+' --- NOTA DE GUARDS ---
+note as N1
+  <b>Guards condicionais (when):</b>
+  when [transacaoValida == true] → Pedido Pago
+  when [transacaoValida == false] → Pedido Cancelado
+end note
+
+' --- INÍCIO ---
+[*] --> AguardandoPagamento : fechamento do carrinho\n/ totalItens > 0
+
+' --- ESTADOS E TRANSIÇÕES ---
+state "Aguardando pagamento" as AguardandoPagamento {
+  AguardandoPagamento : status = "aguardando"
+  AguardandoPagamento : pagamentoAprovado = false
+}
+
+state c1 <<choice>>
+
+AguardandoPagamento --> c1 : processamento pela API externa\n/ statusAnalise = "pendente"
+
+c1 --> Cancelado : [else]
+
+state "Pedido cancelado" as Cancelado {
+    Cancelado : status = "cancelado"
+    Cancelado : motivoCancelamento = "falha na transação"
+}
+
+c1 --> Pago : [transacaoValida == true and estoqueDisponivel == true]
+
+state "Pedido pago" as Pago {
+    Pago : status = "pago"
+    Pago : pagamentoAprovado = true
+}
+
+Pago --> Separacao : notificação de pagamento recebida\n/ acionarVendedor()
+
+state "Em separação" as Separacao {
+    Separacao : status = "separacao"
+    Separacao : estoqueBaixado = true
+}
+
+Separacao --> Enviado : pacote despachado pela transportadora\n/ codigoRastreioGerado = true
+
+state "Pedido enviado" as Enviado {
+    Enviado : status = "enviado"
+    Enviado : emTransito = true
+}
+
+Enviado --> Entregue : confirmação de recebimento pelo cliente\n/ dataEntrega = atual
+
+state "Pedido entregue" as Entregue {
+    Entregue : status = "entregue"
+    Entregue : processoFinalizado = true
+}
+
+' --- FIM ---
+Cancelado --> [*]
+Entregue --> [*]
+
+@enduml

@@ -1,0 +1,137 @@
+@startuml
+top to bottom direction
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam classAttributeIconSize 0
+
+' Ajuste de espaçamento para o layout vertical
+skinparam nodesep 60
+skinparam ranksep 60
+
+' --- ESTILOS ---
+skinparam class {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor DimGray
+    FontColor Black
+}
+
+' --- ENUMERAÇÕES ---
+enum StatusPedido {
+    AGUARDANDO_PAGAMENTO
+    PAGO
+    SEPARACAO
+    ENVIADO
+    ENTREGUE
+}
+
+' --- ATORES / USUÁRIOS ---
+abstract class Usuario {
+    # id: Integer
+    # nome: String
+    # email: String
+    # telefone: String
+    # dtNascimento: Date
+    + fazerLogin(): boolean
+    + recuperarSenha(): void
+}
+
+class Cliente {
+    - enderecoEntrega: String
+    + adicionarAoCarrinho(item: ItemPedido): void
+    + avaliarCompra(pedido: Pedido): void
+}
+
+class Vendedor {
+    - cnpjOuCpf: String
+    - taxaComissao: Float
+    + cadastrarProduto(produto: Produto): void
+    + realizarEnvio(pedido: Pedido): void
+}
+
+Usuario <|-- Cliente
+Usuario <|-- Vendedor
+
+' --- PRODUTOS ---
+abstract class Produto {
+    # id: Integer
+    # titulo: String
+    # preco: Float
+    # quantidadeEstoque: Integer
+    + atualizarEstoque(quantidade: int): void
+}
+
+class JogoTabuleiro {
+    - idadeMinima: Integer
+    - maxJogadores: Integer
+}
+
+class Carta {
+    - colecao: String
+    - raridade: String
+}
+
+class MidiaFisica {
+    - tipoMidia: String
+    - estadoConservacao: String
+}
+
+Produto <|-- JogoTabuleiro
+Produto <|-- Carta
+Produto <|-- MidiaFisica
+
+' --- VENDAS E PEDIDOS ---
+class Pedido {
+    - id: Integer
+    - dataCriacao: LocalDateTime
+    - status: StatusPedido
+    - valorTotal: Float
+    + calcularTotal(): Float
+    + atualizarStatus(novoStatus: StatusPedido): void
+}
+
+class ItemPedido {
+    - quantidade: Integer
+    - precoUnitario: Float
+    + calcularSubtotal(): Float
+}
+
+class Pagamento {
+    - id: Integer
+    - Float: String
+    - valor: Float
+    + processarTransacao(): boolean
+}
+
+' --- PADRÕES DE PROJETO (ORQUESTRAÇÃO) ---
+class PedidoFacade {
+    + finalizarPedido(carrinho: Carrinho, pagamento: Pagamento): Pedido
+    + orquestrarBaixaEstoque(pedido: Pedido): void
+    + dispararNotificacao(pedido: Pedido): void
+}
+
+' --- RELACIONAMENTOS ---
+
+' Um Cliente realiza muitos Pedidos (1 para N)
+Cliente "1" -- "0..*" Pedido : realiza >
+
+' Um Vendedor gerencia muitos Produtos (1 para N)
+Vendedor "1" -- "0..*" Produto : gerencia >
+
+' Composição: Um Pedido é composto por vários Itens 
+Pedido "1" *-- "1..*" ItemPedido : contém
+
+' Associação: O Pedido usa e depende do StatusPedido para existir visualmente próximo
+Pedido --> StatusPedido : define status >
+
+' Associação: Um ItemPedido refere-se a um Produto específico
+ItemPedido "0..*" --> "1" Produto : refere-se a
+
+' Associação: Um Pedido tem um Pagamento associado
+Pedido "1" -- "1" Pagamento : possui >
+
+' Dependências do Facade
+PedidoFacade ..> Pedido
+PedidoFacade ..> Pagamento
+
+@enduml

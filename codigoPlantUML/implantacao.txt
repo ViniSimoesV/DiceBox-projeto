@@ -1,0 +1,102 @@
+@startuml
+top to bottom direction
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam nodesep 40
+skinparam ranksep 60
+
+' Configurações Visuais
+skinparam node {
+    BackgroundColor White
+    BorderColor Black
+}
+skinparam database {
+    BackgroundColor White
+    BorderColor #FF8C00
+    FontColor Black
+}
+skinparam queue {
+    BackgroundColor White
+    BorderColor #008000
+    FontColor Black
+}
+skinparam cloud {
+    BackgroundColor WhiteSmoke
+    BorderColor Black
+}
+
+' --- DISPOSITIVO CLIENTE ---
+node "Dispositivo do Usuário" <<Device>> as device {
+    node "Navegador Web" <<Browser>> as browser
+}
+
+' --- NUVEM AWS ---
+node "AWS Cloud" <<Environment>> as aws {
+    
+    node "API Gateway / Load Balancer" <<Gateway>> as api_gw
+    
+    ' Cluster de Contêineres (A grande caixa central da imagem)
+    node "Cluster Docker (Amazon ECS/EKS)" <<Execution Environment>> as cluster #F0F8FF {
+        
+        ' Contêineres de Serviço API
+        node "Contêiner: API Inventário" <<Docker>> as c_inv
+        node "Contêiner: API Pedidos" <<Docker>> as c_ped
+        node "Contêiner: API Pagamento" <<Docker>> as c_pag
+        node "Contêiner: API Notificação" <<Docker>> as c_not
+        
+        ' Contêineres de Workers (Processamento em Background)
+        node "Contêiner: Worker Inventário" <<Docker>> as cw_inv
+        node "Contêiner: Worker Pagamento" <<Docker>> as cw_pag
+        node "Contêiner: Worker Notificação" <<Docker>> as cw_not
+    }
+
+    ' Serviços Gerenciados AWS (Bancos e Filas)
+    node "Amazon RDS" <<Database Server>> as rds {
+        database "PostgreSQL\n(Inventário)" as db_inv
+        database "PostgreSQL\n(Pedidos)" as db_ped
+        database "PostgreSQL\n(Pagamento)" as db_pag
+    }
+
+    node "Amazon MQ" <<Message Broker>> as mq {
+        queue "RabbitMQ\n(Filas de Eventos)" as rabbit
+    }
+}
+
+' --- SISTEMAS EXTERNOS ---
+cloud "Gateway Externa\nde Pagamento" <<Service>> as ext_pag
+cloud "Amazon SNS\n(Push / SMS)" <<Service>> as ext_sns
+
+' --- RELACIONAMENTOS DE REDE E IMPLANTAÇÃO ---
+
+' Entrada
+browser -[#FF8C00]-> api_gw : HTTPS
+
+' Roteamento do Load Balancer para os Contêineres
+api_gw -[#FF8C00]-> c_inv : HTTPS / REST
+api_gw -[#FF8C00]-> c_ped : HTTPS / REST
+api_gw -[#FF8C00]-> c_pag : HTTPS / REST
+api_gw -[#FF8C00]-> c_not : HTTPS / REST
+
+' Conexões Síncronas (Contêineres -> Bancos)
+c_inv -[#FF8C00]-> db_inv : TCP/IP (JDBC)
+c_ped -[#FF8C00]-> db_ped : TCP/IP (JDBC)
+c_pag -[#FF8C00]-> db_pag : TCP/IP (JDBC)
+
+' Conexões Assíncronas (Contêineres -> Filas)
+c_ped -[#008000]-> rabbit : TCP/IP (AMQP)
+c_pag -[#008000]-> rabbit : TCP/IP (AMQP)
+
+' Workers consumindo as Filas
+rabbit <-[#008000]- cw_inv : TCP/IP (AMQP)
+rabbit <-[#008000]- cw_pag : TCP/IP (AMQP)
+rabbit <-[#008000]- cw_not : TCP/IP (AMQP)
+
+' Workers atualizando os Bancos
+cw_inv -[#FF8C00]-> db_inv : TCP/IP (JDBC)
+cw_pag -[#FF8C00]-> db_pag : TCP/IP (JDBC)
+
+' Comunicações Externas
+c_pag -[#FF8C00]-> ext_pag : HTTPS
+cw_not -[#FF8C00]-> ext_sns : HTTPS
+
+@enduml

@@ -1,0 +1,108 @@
+@startuml
+top to bottom direction
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam roundcorner 5
+
+' --- AJUSTES DE ESPAÇAMENTO VERTICAL E HORIZONTAL ---
+skinparam nodesep 60
+skinparam ranksep 90
+
+' --- ESTILOS ---
+skinparam class {
+    BackgroundColor White
+    BorderColor Black
+    ArrowColor DimGray
+}
+
+' --- ENTIDADES DO BANCO ---
+entity "usuario" as usuario {
+  * id : INT [PK]
+  --
+  nome : VARCHAR(100)
+  email : VARCHAR(100) UNIQUE
+  telefone : VARCHAR(20)
+  data_nascimento : DATE
+  senha_hash : VARCHAR(255)
+  data_criacao : TIMESTAMP
+}
+
+entity "cliente" as cliente {
+  * id_usuario : INT [PK, FK]
+  --
+  endereco_entrega : TEXT
+}
+
+entity "vendedor" as vendedor {
+  * id_usuario : INT [PK, FK]
+  --
+  cnpj_cpf : VARCHAR(20) UNIQUE
+  taxa_comissao : FLOAT
+}
+
+entity "produto" as produto {
+  * id : INT [PK]
+  --
+  id_vendedor : INT [FK]
+  tipo_produto : VARCHAR(20) <<Discriminator>>
+  titulo : VARCHAR(150)
+  preco : FLOAT
+  quantidade_estoque : INT
+  idade_minima : INT <<Null if not Tabuleiro>>
+  max_jogadores : INT <<Null if not Tabuleiro>>
+  colecao : VARCHAR(50) <<Null if not Carta>>
+  raridade : VARCHAR(50) <<Null if not Carta>>
+  tipo_midia : VARCHAR(50) <<Null if not Midia>>
+  estado_conservacao : VARCHAR(50) <<Null if not Midia>>
+}
+
+entity "pedido" as pedido {
+  * id : INT [PK]
+  --
+  id_cliente : INT [FK]
+  data_criacao : TIMESTAMP
+  status : VARCHAR(30)
+  valor_total : FLOAT
+}
+
+entity "item_pedido" as item_pedido {
+  * id : INT [PK]
+  --
+  id_pedido : INT [FK]
+  id_produto : INT [FK]
+  quantidade : INT
+  preco_unitario : FLOAT
+}
+
+entity "pagamento" as pagamento {
+  * id : INT [PK]
+  --
+  id_pedido : INT [FK]
+  id_transacao_ext : VARCHAR(100)
+  valor : FLOAT
+  status : VARCHAR(30)
+  data_pagamento : TIMESTAMP
+}
+
+' --- RELACIONAMENTOS (PÉ DE GALINHA) ---
+
+' Herança simulada com tabelas 1:1
+usuario ||--|| cliente : "é um"
+usuario ||--|| vendedor : "é um"
+
+' Vendedor tem muitos Produtos (1:N)
+vendedor ||--o{ produto : "cadastra"
+
+' Cliente faz muitos Pedidos (1:N)
+cliente ||--o{ pedido : "realiza"
+
+' Pedido tem muitos Itens (1:N)
+pedido ||--|{ item_pedido : "contém"
+
+' Item pertence a um Produto (N:1)
+produto ||--o{ item_pedido : "incluso em"
+
+' Pedido tem um Pagamento (1:1)
+pedido ||--o| pagamento : "quitado por"
+
+@enduml

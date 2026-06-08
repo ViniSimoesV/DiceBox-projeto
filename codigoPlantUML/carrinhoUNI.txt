@@ -1,0 +1,54 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+
+hide footbox
+
+' --- ESTILOS MINIMALISTAS ---
+skinparam sequence {
+    ArrowColor DimGray
+    ActorBorderColor Black
+    LifeLineBorderColor Black
+    LifeLineBackgroundColor White
+    ParticipantBorderColor Black
+    ParticipantBackgroundColor White
+    DatabaseBorderColor Black
+    DatabaseBackgroundColor White
+}
+
+' --- PARTICIPANTES ---
+actor "Cliente" as C
+participant "API/Facade" as API
+database "Banco de Dados" as BD
+
+' ==========================================
+== Adicionar Produto ao Carrinho ==
+' ==========================================
+autonumber 1.1
+C -> API: adicionarProduto(produtoID, quantidade)
+activate API
+API -> BD: verificarDisponibilidade(produtoID)
+activate BD
+BD --> API: disponibilidadeConfirmada()
+deactivate BD
+API -> BD: atualizarCarrinho(carrinhoID)
+activate BD
+BD --> API: carrinhoAtualizado()
+deactivate BD
+API --> C: produtoAdicionado()
+deactivate API
+
+' ==========================================
+== Remover Produto do Carrinho ==
+' ==========================================
+autonumber 2.1
+C -> API: removerProduto(carrinhoID, produtoID)
+activate API
+API -> BD: atualizarCarrinho(carrinhoID)
+activate BD
+BD --> API: carrinhoAtualizado()
+deactivate BD
+API --> C: produtoRemovido()
+deactivate API
+
+@enduml

@@ -1,0 +1,217 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+
+' --- ESTILOS MINIMALISTAS ---
+skinparam sequence {
+    ArrowColor DimGray
+    ActorBorderColor Black
+    LifeLineBorderColor Black
+    LifeLineBackgroundColor White
+    ParticipantBorderColor Black
+    ParticipantBackgroundColor White
+    DatabaseBorderColor Black
+    DatabaseBackgroundColor White
+}
+
+' --- PARTICIPANTES ---
+actor "Cliente" as C
+actor "Vendedor" as V
+participant "API/Facade" as API
+queue "RabbitMQ" as Q
+participant "Worker" as W
+database "Banco de Dados" as BD
+participant "Pagamento" as PG
+
+' ==========================================
+== Fluxo: Gerenciamento de Contas (CRUD) ==
+' ==========================================
+
+autonumber 1.1
+V -> API: cadastrarConta(dadosVendedor)
+activate API
+API -> BD: salvarUsuario()
+activate BD
+BD --> API: usuarioSalvo()
+deactivate BD
+API --> V: contaCriada()
+deactivate API
+
+C -> API: atualizarDadosConta(dadosCliente)
+activate API
+API -> BD: atualizarUsuario()
+activate BD
+BD --> API: usuarioAtualizado()
+deactivate BD
+API --> C: dadosAtualizados()
+deactivate API
+
+' ==================================================
+== Fluxo: Gerenciar Produtos à Venda (Vendedor) ==
+' ==================================================
+
+autonumber 2.1
+V -> API: cadastrarProduto(dadosProduto)
+activate API
+API -> BD: salvarProduto()
+activate BD
+BD --> API: produtoSalvo()
+deactivate BD
+API --> V: produtoCadastrado()
+deactivate API
+
+V -> API: atualizarEstoque(produtoID, quantidade)
+activate API
+API -> BD: atualizarQuantidade()
+activate BD
+BD --> API: quantidadeAtualizada()
+deactivate BD
+API --> V: estoqueAtualizado()
+deactivate API
+
+' ==================================================
+== Fluxo: Gerenciar Carrinho de Compras (Cliente) ==
+' ==================================================
+
+autonumber 3.1
+C -> API: adicionarProduto(produtoID, quantidade)
+activate API
+API -> BD: verificarDisponibilidade(produtoID)
+activate BD
+BD --> API: disponibilidadeConfirmada()
+deactivate BD
+API -> BD: atualizarCarrinho(carrinhoID)
+activate BD
+BD --> API: carrinhoAtualizado()
+deactivate BD
+API --> C: produtoAdicionado()
+deactivate API
+
+C -> API: removerProduto(carrinhoID, produtoID)
+activate API
+API -> BD: atualizarCarrinho(carrinhoID)
+activate BD
+BD --> API: carrinhoAtualizado()
+deactivate BD
+API --> C: produtoRemovido()
+deactivate API
+
+' ==========================================
+== Fluxo: Finalização de Pedido ==
+' ==========================================
+
+autonumber 4.1
+C -> API: solicitarCheckout(carrinhoID)
+activate API
+API -> BD: buscarItensCarrinho()
+activate BD
+BD --> API: retornarItens()
+deactivate BD
+API -> BD: criarPedido()
+activate BD
+BD --> API: confirmarCriacaoPedido()
+deactivate BD
+API -> Q: publicarEvento(ReservaEstoque)
+activate Q
+Q --> API: eventoPublicado()
+deactivate Q
+API -> Q: publicarEvento(CobrancaPagamento)
+activate Q
+Q --> API: eventoPublicado()
+deactivate Q
+API --> C: retornarStatusConfirmacao()
+deactivate API
+
+' ==========================================
+== Fluxo Assíncrono (Background) ==
+' ==========================================
+
+autonumber 5.1
+Q -> W: consumirEvento(CobrancaPagamento)
+activate W
+W -> PG: processarTransacao()
+activate PG
+PG --> W: pagamentoConfirmado()
+deactivate PG
+W -> BD: atualizarStatusPagamento()
+activate BD
+BD --> W: statusAtualizado()
+deactivate BD
+W -> Q: publicarEvento(NotificacaoSucesso)
+activate Q
+Q --> W: eventoPublicado()
+deactivate Q
+W -> V: notificarNovaVenda(pedidoID)
+deactivate W
+
+' ==================================================
+== Fluxo: Realizar Envio e Notificar Status ==
+' ==================================================
+
+autonumber 6.1
+V -> API: consultarPedidosPendentes(status=PAGO)
+activate API
+API -> BD: buscarPedidos()
+activate BD
+BD --> API: retornarListaPedidos()
+deactivate BD
+API --> V: exibirPedidos()
+deactivate API
+
+V -> API: realizarEnvio(pedidoID, codRastreio)
+activate API
+API -> BD: atualizarStatus(ENVIADO)
+activate BD
+BD --> API: statusAtualizado()
+deactivate BD
+API -> Q: publicarEvento(NotificacaoEnvio)
+activate Q
+Q --> API: eventoPublicado()
+deactivate Q
+API --> V: confirmacaoEnvio()
+deactivate API
+
+Q -> W: consumirEvento(NotificacaoEnvio)
+activate W
+W -> C: notificarStatusPedido(codRastreio)
+deactivate W
+
+' ==========================================
+== Fluxo: Avaliar Compra (Cliente) ==
+' ==========================================
+
+autonumber 7.1
+C -> API: avaliarCompra(pedidoID, nota, comentario)
+activate API
+API -> BD: verificarStatusEntregue(pedidoID)
+activate BD
+BD --> API: statusConfirmado()
+deactivate BD
+API -> BD: salvarAvaliacao()
+activate BD
+BD --> API: avaliacaoSalva()
+deactivate BD
+API -> V: notificarNovaAvaliacao(produtoID)
+API --> C: avaliacaoRegistrada()
+deactivate API
+
+' ==========================================
+== Fluxo: Cancelamento ==
+' ==========================================
+
+autonumber 8.1
+C -> API: solicitarCancelamento(pedidoID)
+activate API
+API -> BD: liberarEstoque()
+activate BD
+BD --> API: estoqueLiberado()
+deactivate BD
+API -> PG: solicitarEstorno()
+activate PG
+PG --> API: estornoConfirmado()
+deactivate PG
+API -> V: notificarCancelamentoVenda(pedidoID)
+API --> C: confirmacaoCancelamento()
+deactivate API
+
+@enduml

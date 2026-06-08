@@ -1,0 +1,54 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+
+' --- ESTILOS MINIMALISTAS ---
+skinparam sequence {
+    ArrowColor DimGray
+    ActorBorderColor Black
+    LifeLineBorderColor Black
+    LifeLineBackgroundColor White
+    ParticipantBorderColor Black
+    ParticipantBackgroundColor White
+    DatabaseBorderColor Black
+    DatabaseBackgroundColor White
+}
+
+' --- PARTICIPANTES ---
+actor "Cliente" as C
+participant "API/Facade" as API
+database "Banco de Dados" as BD
+actor "Vendedor" as V
+
+' ==========================================
+== Acompanhar Pedido ==
+' ==========================================
+autonumber 1.1
+C -> API: consultarStatusPedido(pedidoID)
+activate API
+API -> BD: buscarPedido(pedidoID)
+activate BD
+BD --> API: retornarDadosEStatus()
+deactivate BD
+API --> C: exibirStatusPedido()
+deactivate API
+
+' ==========================================
+== Avaliar Compra (Extend) ==
+' ==========================================
+autonumber 2.1
+C -> API: avaliarCompra(pedidoID, nota, comentario)
+activate API
+API -> BD: verificarStatusEntregue(pedidoID)
+activate BD
+BD --> API: statusConfirmado()
+deactivate BD
+API -> BD: salvarAvaliacao()
+activate BD
+BD --> API: avaliacaoSalva()
+deactivate BD
+API -> V: notificarNovaAvaliacao(produtoID)
+API --> C: avaliacaoRegistrada()
+deactivate API
+
+@enduml

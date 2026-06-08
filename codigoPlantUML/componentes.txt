@@ -1,0 +1,101 @@
+@startuml
+top to bottom direction
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+skinparam componentStyle rectangle
+
+skinparam node {
+    BackgroundColor White
+    BorderColor Black
+}
+skinparam component {
+    BackgroundColor White
+    BorderColor Black
+}
+skinparam database {
+    BackgroundColor White
+    BorderColor #FF8C00
+    FontColor Black
+}
+skinparam queue {
+    BackgroundColor White
+    BorderColor #008000
+    FontColor Black
+}
+skinparam package {
+    BorderColor #4682B4
+    BorderStyle dashed
+    BackgroundColor Transparent
+}
+skinparam cloud {
+    BackgroundColor WhiteSmoke
+    BorderColor Black
+}
+
+' --- NÍVEL 1: ENTRADA ---
+node "NAVEGADOR" as nav
+node "API" as api
+nav <--> api
+
+package "Nuvem AWS" {
+    
+    package "Cluster de Contêineres" as cluster #F0F8FF {
+        ' --- NÍVEL 2: MICROSSERVIÇOS ---
+        component "<<SERVICE>>\nCATÁLOGO E INVENTÁRIO" as s_inv
+        component "<<SERVICE>>\nPEDIDOS" as s_ped
+        component "<<SERVICE>>\nPAGAMENTO" as s_pag
+        component "<<SERVICE>>\nNOTIFICAÇÃO" as s_not
+        
+        ' Workers
+        component "<<WORKER>>\nINVENTÁRIO" as w_inv
+        component "<<WORKER>>\nPAGAMENTO" as w_pag
+        component "<<WORKER>>\nNOTIFICAÇÕES" as w_not
+    }
+
+    package "Serviços Gerenciados de Banco" as rds {
+        ' --- NÍVEL 3: BANCOS DE DADOS ---
+        database "aws\nDB INVENTÁRIO" as db_inv
+        database "aws\nDB PEDIDOS" as db_ped
+        database "aws\nDB PAGAMENTO" as db_pag
+    }
+
+    package "Mensageria (Amazon MQ)" as mq {
+        ' --- FLUXO ASSÍNCRONO (DIREITA) ---
+        queue "FILA DE INVENTÁRIO\n(RabbitMQ)" as q_inv
+        queue "FILA DE PAGAMENTOS\n(RabbitMQ)" as q_pag
+        queue "FILA DE NOTIFICAÇÕES\n(RabbitMQ)" as q_not
+    }
+}
+
+' Worker de Notificação acionando serviço externo
+cloud "Amazon SNS" as sns
+
+' --- RELACIONAMENTOS ---
+
+api -[#FF8C00]-> s_inv : REST
+api -[#FF8C00]-> s_ped : REST
+api -[#FF8C00]-> s_pag : REST
+api -[#FF8C00]-> s_not : REST
+
+s_inv -[#FF8C00]-> db_inv : TCP/IP
+s_ped -[#FF8C00]-> db_ped : TCP/IP
+s_pag -[#FF8C00]-> db_pag : TCP/IP
+
+' Serviços enviando para as Filas (Linhas Verdes)
+s_ped -[#008000]-> q_inv : AMQP
+s_ped -[#008000]-> q_pag : AMQP
+s_ped -[#008000]-> q_not : AMQP
+
+' Workers consumindo as Filas (Linhas Verdes)
+q_inv <-[#008000]- w_inv : AMQP
+q_pag <-[#008000]- w_pag : AMQP
+q_not <-[#008000]- w_not : AMQP
+
+' Workers atualizando os Bancos de Dados (Linhas Laranjas)
+w_inv -[#FF8C00]-> db_inv : TCP/IP
+w_pag -[#FF8C00]-> db_pag : TCP/IP
+
+' Worker de Notificação acionando serviço externo
+w_not -[#FF8C00]-> sns : HTTPS
+
+@enduml

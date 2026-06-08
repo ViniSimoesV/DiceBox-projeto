@@ -1,0 +1,48 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+
+' --- ESTILOS MINIMALISTAS ---
+skinparam sequence {
+    ArrowColor DimGray
+    ActorBorderColor Black
+    LifeLineBorderColor Black
+    LifeLineBackgroundColor White
+    ParticipantBorderColor Black
+    ParticipantBackgroundColor White
+    DatabaseBorderColor Black
+    DatabaseBackgroundColor White
+}
+
+' --- PARTICIPANTES ---
+actor "Vendedor" as V
+participant "API/Facade" as API
+database "Banco de Dados" as BD
+
+' ==========================================
+== Gerenciar Produtos à Venda ==
+' ==========================================
+autonumber 1.1
+V -> API: cadastrarProduto(dadosProduto)
+activate API
+API -> BD: salvarProduto()
+activate BD
+BD --> API: produtoSalvo()
+deactivate BD
+API --> V: produtoCadastrado()
+deactivate API
+
+' ==========================================
+== Controlar Estoque (Extend) ==
+' ==========================================
+autonumber 2.1
+V -> API: atualizarEstoque(produtoID, quantidade)
+activate API
+API -> BD: atualizarQuantidade()
+activate BD
+BD --> API: quantidadeAtualizada()
+deactivate BD
+API --> V: estoqueAtualizado()
+deactivate API
+
+@enduml

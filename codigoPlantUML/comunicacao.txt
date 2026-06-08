@@ -1,0 +1,122 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+
+' --- PARTICIPANTES ---
+actor "Cliente" as C
+actor "Vendedor" as V
+participant "API/Facade" as API
+queue "RabbitMQ" as Q
+participant "Worker" as W
+database "Banco de Dados" as BD
+participant "Pagamento" as PG
+
+' ==========================================
+== Fluxo: Gerenciamento de Contas (CRUD) ==
+' ==========================================
+
+autonumber 1.1
+V -> API: cadastrarConta(dadosVendedor)
+API -> BD: salvarUsuario()
+API --> V: contaCriada()
+
+C -> API: atualizarDadosConta(dadosCliente)
+API -> BD: atualizarUsuario()
+API --> C: dadosAtualizados()
+
+' ==================================================
+== Fluxo: Gerenciar Produtos à Venda (Vendedor) ==
+' ==================================================
+
+autonumber 2.1
+V -> API: cadastrarProduto(dadosProduto)
+API -> BD: salvarProduto()
+API --> V: produtoCadastrado()
+
+V -> API: atualizarEstoque(produtoID, quantidade)
+API -> BD: atualizarQuantidade()
+API --> V: estoqueAtualizado()
+
+' ==================================================
+== Fluxo: Gerenciar Carrinho de Compras (Cliente) ==
+' ==================================================
+
+autonumber 3.1
+C -> API: adicionarProduto(produtoID, quantidade)
+API -> BD: verificarDisponibilidade(produtoID)
+BD --> API: disponibilidadeConfirmada()
+API -> BD: atualizarCarrinho(carrinhoID)
+API --> C: produtoAdicionado()
+
+C -> API: removerProduto(carrinhoID, produtoID)
+API -> BD: atualizarCarrinho(carrinhoID)
+API --> C: produtoRemovido()
+
+' ==========================================
+== Fluxo: Finalização de Pedido ==
+' ==========================================
+
+autonumber 4.1
+C -> API: solicitarCheckout(carrinhoID)
+API -> BD: buscarItensCarrinho()
+BD --> API: retornarItens()
+API -> BD: criarPedido()
+BD --> API: confirmarCriacaoPedido()
+API -> Q: publicarEvento(ReservaEstoque)
+API -> Q: publicarEvento(CobrancaPagamento)
+API --> C: retornarStatusConfirmacao()
+
+' ==========================================
+== Fluxo Assíncrono (Background) ==
+' ==========================================
+
+autonumber 5.1
+W -> Q: consumirEvento(CobrancaPagamento)
+W -> PG: processarTransacao()
+PG --> W: pagamentoConfirmado()
+W -> BD: atualizarStatusPagamento()
+W -> Q: publicarEvento(NotificacaoSucesso)
+W -> V: notificarNovaVenda(pedidoID)
+
+' ==================================================
+== Fluxo: Realizar Envio e Notificar Status ==
+' ==================================================
+
+autonumber 6.1
+V -> API: consultarPedidosPendentes(status=PAGO)
+API -> BD: buscarPedidos()
+BD --> API: retornarListaPedidos()
+API --> V: exibirPedidos()
+
+V -> API: realizarEnvio(pedidoID, codRastreio)
+API -> BD: atualizarStatus(ENVIADO)
+API -> Q: publicarEvento(NotificacaoEnvio)
+API --> V: confirmacaoEnvio()
+
+W -> Q: consumirEvento(NotificacaoEnvio)
+W -> C: notificarStatusPedido(codRastreio)
+
+' ==========================================
+== Fluxo: Avaliar Compra (Cliente) ==
+' ==========================================
+
+autonumber 7.1
+C -> API: avaliarCompra(pedidoID, nota, comentario)
+API -> BD: verificarStatusEntregue(pedidoID)
+BD --> API: statusConfirmado()
+API -> BD: salvarAvaliacao()
+API -> V: notificarNovaAvaliacao(produtoID)
+API --> C: avaliacaoRegistrada()
+
+' ==========================================
+== Fluxo: Cancelamento ==
+' ==========================================
+
+autonumber 8.1
+C -> API: solicitarCancelamento(pedidoID)
+API -> BD: liberarEstoque()
+API -> PG: solicitarEstorno()
+API -> V: notificarCancelamentoVenda(pedidoID)
+API --> C: confirmacaoCancelamento()
+
+@enduml
