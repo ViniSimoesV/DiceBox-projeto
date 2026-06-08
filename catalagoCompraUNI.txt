@@ -1,0 +1,48 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "Segoe UI"
+
+' --- ESTILOS MINIMALISTAS ---
+skinparam sequence {
+    ArrowColor DimGray
+    ActorBorderColor Black
+    LifeLineBorderColor Black
+    LifeLineBackgroundColor White
+    ParticipantBorderColor Black
+    ParticipantBackgroundColor White
+    DatabaseBorderColor Black
+    DatabaseBackgroundColor White
+}
+
+' --- PARTICIPANTES ---
+actor "Cliente" as C
+participant "API/Facade" as API
+database "Banco de Dados" as BD
+
+' ==========================================
+== Buscar Produtos no Catálogo ==
+' ==========================================
+autonumber 1.1
+C -> API: buscarProdutos(filtros)
+activate API
+API -> BD: consultarProdutos(filtros)
+activate BD
+BD --> API: retornarListaProdutos()
+deactivate BD
+API --> C: exibirCatalogo()
+deactivate API
+
+' ==========================================
+== Visualizar Detalhes do Produto ==
+' ==========================================
+autonumber 2.1
+C -> API: visualizarDetalhes(produtoID)
+activate API
+API -> BD: buscarProdutoPorID(produtoID)
+activate BD
+BD --> API: retornarDadosProduto()
+deactivate BD
+API --> C: exibirDetalhesProduto()
+deactivate API
+
+@enduml
